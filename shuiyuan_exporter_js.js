@@ -87,9 +87,17 @@
     async function main() {
         let topicID = await getTopicID()
         let filename = await getFilename()
-        let url_raw = 'https://shuiyuan.sjtu.edu.cn/raw/' + topicID
-        let res_raw = await make_request(url_raw)
-        let text = await res_raw.text()
+        let text = ''
+        for (let i = 1; i <= 101; i++) {
+            let url_raw = 'https://shuiyuan.sjtu.edu.cn/raw/' + topicID + '?page=' + i
+            let res_raw = await make_request(url_raw)
+            let subtext = await res_raw.text()
+            if (subtext == '') {
+                break
+            }else{
+                text += subtext
+            }
+        }
         console.log(text)
         await zip.folder(topicID)
         await zip.folder(topicID).file(filename, text)
