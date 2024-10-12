@@ -16,36 +16,56 @@
 (function () {
     'use strict';
 
-    // 异步相关
-    async function* asyncPool(concurrency, iterable, iteratorFn) {
-        const executing = new Set();
-        async function consume() {
-            const [promise, value] = await Promise.race(executing);
-            executing.delete(promise);
-            return value;
-        }
-        for (const item of iterable) {
-            const promise = (async () => await iteratorFn(item, iterable))().then(
-                value => [promise, value]
-            );
-            executing.add(promise);
-            if (executing.size >= concurrency) {
-                yield await consume();
-            }
-        }
-        while (executing.size) {
-            yield await consume();
-        }
-    }
+    // 异步相关 暂时没用上
+    // async function* asyncPool(concurrency, iterable, iteratorFn) {
+    //     const executing = new Set();
+    //     async function consume() {
+    //         const [promise, value] = await Promise.race(executing);
+    //         executing.delete(promise);
+    //         return value;
+    //     }
+    //     for (const item of iterable) {
+    //         const promise = (async () => await iteratorFn(item, iterable))().then(
+    //             value => [promise, value]
+    //         );
+    //         executing.add(promise);
+    //         if (executing.size >= concurrency) {
+    //             yield await consume();
+    //         }
+    //     }
+    //     while (executing.size) {
+    //         yield await consume();
+    //     }
+    // }
 
     // 网络请求相关
-    async function make_request(url) {
+    function urlWithParams(url, params) {
+        let newUrl = url
+        if (params.length == 0) {
+            return newUrl
+        }
+        let i = 0
+        Object.entries(params).forEach(([key, value]) => {
+            if (i == 0) {
+                newUrl += encodeURI(`?${key}=${value}`)
+            } else {
+                newUrl += encodeURI(`&${key}=${value}`)
+            }
+            i++
+        })
+        return newUrl
+
+    }
+    async function make_request_get(url, xmlh = true) {
         let response = await fetch(url, {
             method: "GET",
-            headers: {
+            headers: xmlh ? {
                 "User-Agent": navigator.userAgent,
                 "Cookie": document.cookie,
                 "X-Requested-With": "XMLHttpRequest"
+            } : {
+                "User-Agent": navigator.userAgent,
+                "Cookie": document.cookie,
             }
         })
         return response
@@ -65,9 +85,10 @@
     }
 
     async function getFilename() {
+        let url = await getUrl()
         let topicID = await getTopicID()
-        let oneboxUrl = 'https://shuiyuan.sjtu.edu.cn/onebox?url=https%3A%2F%2Fshuiyuan.sjtu.edu.cn%2Ft%2Ftopic%2F' + topicID
-        let res = await make_request(oneboxUrl)
+        let oneboxUrl = urlWithParams('https://shuiyuan.sjtu.edu.cn/onebox', { url: url })
+        let res = await make_request_get(oneboxUrl)
         let parser = new DOMParser()
         let text = await res.text()
         let doc = parser.parseFromString(text, 'text/html')
@@ -80,41 +101,76 @@
         return filename
     }
 
-    // 文件相关
-    let zip = new JSZip()
-
-    // 主函数
-    async function main() {
-        let topicID = await getTopicID()
-        let filename = await getFilename()
+    // 文本获取与处理
+    async function getRawText(topicID) {
         let text = ''
-        for (let i = 1; i <= 101; i++) {
-            let url_raw = 'https://shuiyuan.sjtu.edu.cn/raw/' + topicID + '?page=' + i
-            let res_raw = await make_request(url_raw)
+        for (let i = 1; ; i++) {
+            let url_raw = urlWithParams('https://shuiyuan.sjtu.edu.cn/raw/' + topicID, { page: i })
+            let res_raw = await make_request_get(url_raw)
             let subtext = await res_raw.text()
             if (subtext == '') {
                 break
-            }else{
+            } else {
                 text += subtext
             }
         }
-        console.log(text)
+        return text
+    }
+
+    // 主函数
+    async function main() {
+        let zip = new JSZip()
         await zip.folder(topicID)
+        await zip.folder(topicID).folder("img")
+
+
+        let topicID = await getTopicID()
+        let filename = await getFilename()
+        let text = await getRawText(topicID)
+
+        // TODO 文件替换
+        // 咕咕咕
+
+        // console.log(text)
         await zip.folder(topicID).file(filename, text)
-        console.log(zip)
+
         zip.generateAsync({ type: "blob" })
             .then(function (content) {
                 saveAs(content, topicID + ".zip")
                 console.log("done")
             })
+
+
     }
+
+    // 脚本启动
     window.onload = function () {
-        let button = document.createElement('button')
-        button.innerHTML = "下载"
-        button.style.color = "black"
-        let div = document.getElementsByClassName('panel')[0]
-        div.insertBefore(button, div.firstChild)
-        button.onclick = main
+        let buttonMain = document.createElement('button')
+        buttonMain.innerHTML = "下载"
+        buttonMain.style.color = "black"
+        let div1 = document.getElementsByClassName('panel')[0]
+        div1.insertBefore(buttonMain, div1.firstChild)
+        buttonMain.onclick = main
+
+        let buttonTest = document.createElement('button')
+        buttonTest.innerHTML = "测试"
+        buttonTest.style.color = "black"
+        let div2 = document.getElementsByClassName('panel')[0]
+        div2.insertBefore(buttonTest, div2.firstChild)
+        buttonTest.onclick = test
+    }
+
+    // 测试函数
+    async function test() {
+        // 按照函数规则替换字符串 好文明
+        let numList=[]
+        let a = 'How I want a drink, alcoholic of course, after the heavy lectures involving quantum mechanics'
+        let num = a.replace(/\w+/g, (aaa) => {
+            numList.push(aaa.length)
+            return aaa.length 
+        })
+        console.log(num)
+        console.log(numList)
     }
 
 })();
