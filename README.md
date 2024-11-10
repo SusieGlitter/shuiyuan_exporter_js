@@ -14,7 +14,7 @@
 
 1. JSzip/3.7.1
 2. FileSaver/2.0.5
-3. asyncPool （将要使用）
+3. asyncPool（直接复制使用）
 
 ---
 
