@@ -91,7 +91,7 @@
 
                 console.log(response.url)
                 // https://shuiyuan.s3.jcloud.sjtu.edu.cn/original/xxx/xxx/xxx/xxx/realFilename?xxxx
-                let realFilename = response.url.match(/[^\/]+\?/g)[0].slice(0,-1)
+                let realFilename = response.url.match(/[^\/]+\?/g)[0].slice(0, -1)
                 console.log(realFilename)
 
                 let blob = await response.blob()
@@ -107,7 +107,7 @@
                 console.log(result[1] + ' failed')
                 console.log(result[2])
             }
-            else{
+            else {
                 console.log(result[1] + ' done')
                 suc.push(result)
             }
@@ -192,21 +192,21 @@
             fileList.push([url, filename, 0, ''])
             return replaceText
         }
-        console.log(text.match(/\[[^\]]*\]\(upload:\/\/[^\)]*\)/g).length)
-        text = text.replace(/\[[^\]]*\]\(upload:\/\/[^\)]*\)/g, replacer)
+        if (text.match(/\[[^\]]*\]\(upload:\/\/[^\)]*\)/g)) {
+            text = text.replace(/\[[^\]]*\]\(upload:\/\/[^\)]*\)/g, replacer)
 
-        fileList = await fileDownload(fileList, folder)
-        console.log(fileList)
+            fileList = await fileDownload(fileList, folder)
+            console.log(fileList)
 
-        for (let i = 0; i < fileList.length; i++) {
-            let originalText = '[' + fileList[i][1] + '](./files/' + fileList[i][1] + ')'
-            let replaceText = '[' + fileList[i][1] + '](./files/' + fileList[i][3] + ')'
-            if(fileList[i][3] == ''){
-                replaceText = '```文件' + fileList[i][0] + '下载失败```'
+            for (let i = 0; i < fileList.length; i++) {
+                let originalText = '[' + fileList[i][1] + '](./files/' + fileList[i][1] + ')'
+                let replaceText = '[' + fileList[i][1] + '](./files/' + fileList[i][3] + ')'
+                if (fileList[i][3] == '') {
+                    replaceText = '```文件' + fileList[i][0] + '下载失败```'
+                }
+                text = text.replace(originalText, replaceText)
             }
-            text = text.replace(originalText, replaceText)
         }
-
         return text
     }
 
