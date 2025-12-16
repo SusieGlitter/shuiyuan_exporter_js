@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Shuiyuan Exporter JS
 // @namespace    http://tampermonkey.net/
-// @version      2024-10-08
+// @version      2025-12-14
 // @description  try to take over the world!
-// @author       SusieGlitter
+// @author       SusieGlitter with Gemini
 // @match        https://shuiyuan.sjtu.edu.cn/
 // @match        https://shuiyuan.sjtu.edu.cn/*
 // @match        https://shuiyuan.sjtu.edu.cn/t/topic/*
@@ -12,11 +12,105 @@
 // @require      https://cdn.bootcdn.net/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_download
-// @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
+// @icon         data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAdWgAAHVgB8YlK3wAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXpeoruPBoAAAC+SURBVDiNtVLBjgNBDL332gOogGgAOkGzQDoQOgI6QToCekGzQToqg24o+2g2QZ0g6wS9R0b2zR3g3+l8vIubm8n8e3zJd55Vj0U673N9Q11v76p0x7Q+X569rK+q329S1/l4407B19777X9H+YgU3gXhD5JvB3F3x+vj73809/2N+d5Q+5wR0j3P9+17sQzU3g/oU/J+c9+3+f1j/s/tL1n7/A9eF7gD2V8y2127x34L97mB+796J+3W8y+7+8B/cT0j2L+T7r2wzQ3XgHhD5I2V4E7g/4f0j0H+pP4P+f0j7N+97gT2F/y3H2sV+5h/w/935C7A/iC9C/Bfg7/Ffgf4f9f7Q/c+8F/cD4D+D/g3v1G9/gEAAAABJRU5ErkJggg==
 // ==/UserScript==
 /*global ajaxHooker*/
 (function () {
     'use strict';
+    let cnt = 0
+    let sum = 0
+
+    // 进度条相关元素
+    let progressContainer = null;
+    let progressBar = null;
+    let progressText = null;
+
+    // 辅助函数
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // --- 进度条更新函数 ---
+    function updateProgress(text, percent = -1) {
+        if (!progressText || !progressBar) return;
+
+        progressText.innerHTML = text;
+
+        if (percent >= 0) {
+            progressBar.style.width = `${Math.min(100, percent)}%`;
+            progressBar.style.opacity = '1';
+        } else {
+            // 文本阶段（非精确进度），使用模糊进度
+            progressBar.style.width = '100%'; // 让进度条充满，但只作为背景
+            progressBar.style.opacity = '0.1'; // 降低透明度，更像背景底色
+        }
+    }
+
+    function resetProgress(panel) {
+        // 如果已经存在，先移除
+        if (progressContainer && progressContainer.parentNode) {
+            progressContainer.parentNode.removeChild(progressContainer);
+        }
+
+        // 创建进度条容器
+        progressContainer = document.createElement('div');
+        progressContainer.id = 'shuiyuan-exporter-progress-container';
+        // 修改：使用固定宽度 800px
+        progressContainer.style.cssText = `
+            margin-top: 10px;
+            margin-bottom: 10px;
+            padding: 0;
+            width: 800px; /* 定死宽度 */
+            max-width: 95vw; /* 防止在小屏幕上溢出 */
+            height: 25px;
+            background-color: #e0e0e0; /* 底色 */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+            display: block; /* 确保是块级元素 */
+        `;
+
+        // 创建图形进度条
+        progressBar = document.createElement('span');
+        progressBar.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50; /* 绿色进度条 */
+            transition: width 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            z-index: 1;
+            opacity: 0;
+        `;
+
+        // 创建文本显示区域
+        progressText = document.createElement('span');
+        progressText.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #333;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.7); /* 确保文本在进度条上可见 */
+            z-index: 2;
+            white-space: nowrap; /* 确保文字不换行 */
+        `;
+
+        progressContainer.appendChild(progressBar);
+        progressContainer.appendChild(progressText);
+
+        // 插入到按钮上方 (panel.firstChild)
+        panel.insertBefore(progressContainer, panel.firstChild);
+
+        updateProgress("正在初始化...");
+    }
+    // --- 进度条更新函数结束 ---
+
 
     // 异步相关
     async function* asyncPool(concurrency, iterable, iteratorFn) {
@@ -43,12 +137,12 @@
     // 网络请求相关
     function urlWithParams(url, params) {
         let newUrl = url
-        if (params.length == 0) {
+        if (Object.keys(params).length === 0) {
             return newUrl
         }
         let i = 0
         Object.entries(params).forEach(([key, value]) => {
-            if (i == 0) {
+            if (i === 0) {
                 newUrl += encodeURI(`?${key}=${value}`)
             } else {
                 newUrl += encodeURI(`&${key}=${value}`)
@@ -70,28 +164,36 @@
                     "User-Agent": navigator.userAgent,
                     "Cookie": document.cookie,
                 }
-            })
-            return response
-        } catch (e) {
-            console.log(e)
-            console.log('request failed')
-            return null
+            });
+            return response;
+        } catch (error) {
+            console.error('Fetch Error:', error);
+            return null; // 返回 null 表示请求失败
         }
     }
 
     async function fetchAll(res, folder, maxRetryTimes) {
         let newres = []
         let suc = []
+        let totalItems = sum;
+
         for await (let result of asyncPool(10, res, async (item) => {
             let url = item[0]
             let filename = item[1]
             let retryTimes = item[2]
             let response = await make_request_get(url, false)
-            if (response && (response.ok)) {
 
+            if (response && (response.ok)) {
+                cnt += 1
+                // 更新文件下载进度 (精简文本)
+                let percent = (cnt / totalItems) * 100;
+                updateProgress(`文件下载中: ${cnt} / ${totalItems}`, percent);
+
+                console.log(cnt, "/", sum)
                 console.log(response.url)
-                // https://shuiyuan.s3.jcloud.sjtu.edu.cn/original/xxx/xxx/xxx/xxx/realFilename?xxxx
-                let realFilename = response.url.match(/[^\/]+\?/g)[0].slice(0, -1)
+
+                let match = response.url.match(/([^\/]+)\?/)
+                let realFilename = match ? match[1] : filename
                 console.log(realFilename)
 
                 let blob = await response.blob()
@@ -99,67 +201,92 @@
 
                 return [url, filename, maxRetryTimes, realFilename]
             } else {
-                return [url, filename, retryTimes + 1, '']
+                if (retryTimes + 1 <= maxRetryTimes) {
+                    console.log(`retrying ${filename} (attempt ${retryTimes + 1})`)
+                    return [url, filename, retryTimes + 1, '']
+                } else {
+                    return [url, filename, maxRetryTimes, '']
+                }
             }
         })) {
-            if (result[2] < maxRetryTimes) {
+            if (result[2] < maxRetryTimes && result[3] === '') {
                 newres.push(result)
-                console.log(result[1] + ' failed')
-                console.log(result[2])
+                console.log(result[1] + ' failed, will retry')
             }
             else {
-                console.log(result[1] + ' done')
+                console.log(result[1] + ' done or max retries reached')
                 suc.push(result)
             }
         }
-        console.log(newres.length + ' failed')
+        console.log(newres.length + ' failed / need retry')
         return [newres, suc]
     }
 
-    async function fileDownload(fileList, folder, maxRetryTimes = 3) {
-        let res = fileList
+    async function fileDownload(fileList, folder, maxRetryTimes = 5) {
+        let res = fileList.map(item => [item[0], item[1], 0, ''])
         let suc = []
         let ret = []
-        let resandsuc = []
-        while (res.length != 0) {
-            resandsuc = await fetchAll(res, folder, maxRetryTimes)
-            res = resandsuc[0]
-            suc = resandsuc[1]
-            ret = ret.concat(suc)
-            console.log('-------------')
-            console.log(res)
-            console.log(suc)
-            console.log('-------------')
+        let attempt = 0
+        const MAX_GLOBAL_ATTEMPTS = 10;
+
+        while (res.length !== 0 && attempt < MAX_GLOBAL_ATTEMPTS) {
+            attempt++;
+            console.log(`\n--- Global File Download Attempt ${attempt} ---`);
+
+            let resandsuc = await fetchAll(res, folder, maxRetryTimes);
+            res = resandsuc[0];
+            suc = resandsuc[1].filter(item => item[3] !== '');
+
+            ret = ret.concat(suc);
+
+            if (res.length > 0) {
+                const delay = 5000 * attempt;
+                console.log(`${res.length} files still failed. Waiting for ${delay / 1000} seconds before next attempt.`);
+                updateProgress(`文件下载失败 ${res.length} 个。等待 ${delay / 1000} 秒后重试...`);
+                await sleep(delay);
+            } else if (res.length === 0) {
+                console.log('All files downloaded successfully or max retries reached for failed items.');
+            }
         }
-        return ret
+
+        let finalRet = ret.concat(res.filter(item => item[3] === ''));
+        return finalRet;
     }
 
     // 获取信息相关
     async function getUrl() {
         let url = window.location.href
-        url = url.match(/https:\/\/shuiyuan.sjtu.edu.cn\/t\/topic\/[^\/.]+/g)[0]
-        return url
+        let match = url.match(/https:\/\/shuiyuan.sjtu.edu.cn\/t\/topic\/[^\/.]+/g)
+        return match ? match[0] : null
     }
 
     async function getTopicID() {
         let url = await getUrl()
-        let topicID = url.match(/\d+/g)[0]
-        return topicID
+        if (!url) return null
+        let topicID = url.match(/\d+/g)
+        return topicID ? topicID[0] : null
     }
 
     async function getFilename() {
         let url = await getUrl()
         let topicID = await getTopicID()
+        if (!url || !topicID) return topicID + " topic.md"
+
         let oneboxUrl = urlWithParams('https://shuiyuan.sjtu.edu.cn/onebox', { url: url })
         let res = await make_request_get(oneboxUrl)
+        if (!res || !res.ok) {
+            console.warn("Failed to fetch onebox. Using default filename.");
+            return topicID + " topic.md"
+        }
+
         let parser = new DOMParser()
         let text = await res.text()
-        console.log(text)
         let doc = parser.parseFromString(text, 'text/html')
-        let filename = doc.querySelector('a').textContent
-        // console.log(filename)
+        let a = doc.querySelector('a')
+
+        let filename = a ? a.textContent : "未知标题"
         filename = filename + ".md"
-        filename = filename.replace("/", " or ")
+        filename = filename.replace(/\//g, " or ")
         filename = filename.replace(/<[^>]+>/g, "_")
         filename = topicID + " " + filename
         return filename
@@ -168,101 +295,238 @@
     // 文本获取与处理
     async function getRawText(topicID) {
         let text = ''
-        for (let i = 1; ; i++) {
-            let url_raw = urlWithParams('https://shuiyuan.sjtu.edu.cn/raw/' + topicID, { page: i })
-            let res_raw = await make_request_get(url_raw)
-            let subtext = await res_raw.text()
-            if (subtext == '') {
-                break
-            } else {
-                text += subtext
+        let page = 1;
+        const MAX_RETRIES = 5;
+
+        updateProgress("文本下载中...");
+
+        while (true) {
+            let pageText = null;
+            let retryCount = 0;
+
+            while (retryCount < MAX_RETRIES) {
+                let url_raw = urlWithParams('https://shuiyuan.sjtu.edu.cn/raw/' + topicID, { page: page });
+                console.log(`Fetching raw page ${page}. Attempt: ${retryCount + 1}`);
+                updateProgress(`文本下载中: 第 ${page} 页 (尝试 ${retryCount + 1})`);
+
+                let res_raw = await make_request_get(url_raw);
+
+                if (res_raw && res_raw.ok) {
+                    let subtext = await res_raw.text();
+
+                    if (subtext === '') {
+                        console.log(`Page ${page} returned empty. Assuming end of topic.`);
+                        return text;
+                    }
+
+                    if (subtext.includes("Slow down, you're making too many requests.")) {
+                         console.warn(`Raw page ${page} returned rate limit message in body. Retrying...`);
+                         retryCount++;
+                         let delay = 5000 * retryCount;
+                         console.log(`Waiting for ${delay / 1000} seconds before next attempt.`);
+                         updateProgress(`速率限制！等待 ${delay / 1000} 秒重试第 ${page} 页...`);
+                         await sleep(delay);
+                         continue;
+                    }
+
+                    pageText = subtext;
+                    break;
+                } else {
+                    retryCount++;
+                    let delay = 3000 * retryCount;
+
+                    console.warn(`Request for page ${page} failed (Status: ${res_raw ? res_raw.status : 'N/A'}). Retrying in ${delay / 1000} seconds...`);
+
+                    if (res_raw && res_raw.status === 429) {
+                        console.error('Caught 429 Too Many Requests. Increasing delay.');
+                        delay = 10000;
+                    }
+
+                    updateProgress(`下载失败 (429/Error)。等待 ${delay / 1000} 秒重试第 ${page} 页...`);
+                    await sleep(delay);
+                }
             }
+
+            if (pageText === null) {
+                console.error(`Failed to fetch raw page ${page} after ${MAX_RETRIES} attempts. Aborting raw text fetching.`);
+                return text;
+            }
+
+            text += pageText;
+            page++;
         }
-        return text
     }
 
     async function fileDealing(text, folder) {
         let fileList = []
-        function replacer(shortFilename) {
-            console.log(shortFilename)
-            let filename = shortFilename.match(/upload:\/\/[^\)]*\)/g)[0].slice(9, -1)
+        let fileMap = new Map();
+
+        updateProgress("解析附件链接...");
+
+        const uploadRegex = /\[([^\]]*)\]\((upload:\/\/[^\)]*)\)/g;
+        text.replace(uploadRegex, (match, linkText, uploadUrl) => {
+            let filename = uploadUrl.slice(9);
             let url = 'https://shuiyuan.sjtu.edu.cn/uploads/short-url/' + filename
-            let replaceText = '[' + filename + '](./files/' + filename + ')'
-            console.log(filename)
-            fileList.push([url, filename, 0, ''])
-            return replaceText
+
+            if (!fileMap.has(url)) {
+                fileMap.set(url, [url, filename, 0, ''])
+                sum += 1
+            }
+            return match;
+        });
+
+        fileList = Array.from(fileMap.values());
+
+        if (fileList.length === 0) {
+            updateProgress("未找到附件。");
+            return text;
         }
-        if (text.match(/\[[^\]]*\]\(upload:\/\/[^\)]*\)/g)) {
-            text = text.replace(/\[[^\]]*\]\(upload:\/\/[^\)]*\)/g, replacer)
 
-            fileList = await fileDownload(fileList, folder)
-            console.log(fileList)
+        console.log(`Found ${fileList.length} unique files to download.`);
+        updateProgress(`找到 ${fileList.length} 个附件，开始下载...`);
 
-            for (let i = 0; i < fileList.length; i++) {
-                let originalText = '[' + fileList[i][1] + '](./files/' + fileList[i][1] + ')'
-                let replaceText = '[' + fileList[i][1] + '](./files/' + fileList[i][3] + ')'
-                if (fileList[i][3] == '') {
-                    replaceText = '```文件' + fileList[i][0] + '下载失败```'
-                }
-                text = text.replace(originalText, replaceText)
+        let downloadedList = await fileDownload(fileList, folder);
+        console.log('Download process finished. Starting text replacement.');
+
+        updateProgress("附件下载完成，正在替换文本链接...");
+
+        function replacer(match, linkText, uploadUrl) {
+            let filename = uploadUrl.slice(9);
+            let url = 'https://shuiyuan.sjtu.edu.cn/uploads/short-url/' + filename;
+
+            let item = downloadedList.find(i => i[0] === url);
+
+            if (item && item[3] !== '') {
+                // 成功下载
+                return `[${linkText}](./files/${item[3]})`;
+            } else {
+                // 下载失败
+                console.warn(`File ${filename} failed to download. Replacing with error tag.`);
+                return `[${linkText}](文件下载失败: ${filename})`;
             }
         }
-        return text
+
+        text = text.replace(/\[([^\]]*)\]\((upload:\/\/[^\)]*)\)/g, replacer);
+
+        return text;
     }
 
-    // 主函数
-    async function main() {
-        let zip = new JSZip()
+    // 主函数，接收按钮元素以便控制
+    async function main(btnElement) {
+        // 1. 禁用按钮
+        if (btnElement) {
+            btnElement.disabled = true;
+            btnElement.style.opacity = "0.6"; // 变灰
+            btnElement.style.cursor = "not-allowed"; // 鼠标样式
+        }
+
+        let panel = document.getElementsByClassName('panel')[0]
+        if (!panel) {
+            console.error("Panel element not found. Cannot start download.");
+            if(btnElement) {
+                btnElement.disabled = false;
+                btnElement.style.opacity = "1";
+                btnElement.style.cursor = "pointer";
+            }
+            return;
+        }
+
+        // 2. 重置并插入进度条
+        resetProgress(panel);
+
+        // 重置计数器
+        cnt = 0;
+        sum = 0;
 
         let topicID = await getTopicID()
-        let filename = await getFilename()
-        let text = await getRawText(topicID)
+        if (!topicID) {
+            alert("无法获取帖子ID。请确保当前页面是一个帖子详情页。");
+            updateProgress("❌ 无法获取帖子ID");
+            // 失败时恢复按钮
+            if(btnElement) {
+                btnElement.disabled = false;
+                btnElement.style.opacity = "1";
+                btnElement.style.cursor = "pointer";
+            }
+            return;
+        }
 
-        await zip.folder(topicID)
-        await zip.folder(topicID).folder("files")
+        try {
+            let zip = new JSZip()
 
-        text = await fileDealing(text, zip.folder(topicID))
+            updateProgress("正在获取帖子标题...");
+            let filename = await getFilename()
 
-        // console.log(text)
-        await zip.folder(topicID).file(filename, text)
+            // 3. 获取帖子原始文本
+            let text = await getRawText(topicID)
 
-        zip.generateAsync({ type: "blob" })
-            .then(function (content) {
-                saveAs(content, topicID + ".zip")
-                console.log("done")
+            // 4. 处理文件下载和链接替换
+            const topicFolder = zip.folder(topicID);
+            topicFolder.folder("files");
+
+            text = await fileDealing(text, topicFolder)
+
+            // 5. 将处理后的文本存入 zip
+            topicFolder.file(filename, text)
+
+            // 6. 生成并下载 zip 文件
+            updateProgress("✅ 文件合成中 (生成ZIP)...", 0);
+
+            // 关键优化：指定 compression: "STORE" 以禁用压缩，显著提高大文件打包速度
+            zip.generateAsync({
+                type: "blob",
+                compression: "STORE"
+            }, function updateCallback(metadata) {
+                updateProgress(`✅ 文件合成中: ${metadata.percent.toFixed(1)}%`, metadata.percent);
             })
+                .then(function (content) {
+                    saveAs(content, topicID + ".zip")
+                    console.log("done")
+                    updateProgress(`🎉 **下载完成!** (文件: ${topicID}.zip)`, 100);
+                })
+                .catch(function (error) {
+                    console.error("Error generating zip file:", error);
+                    alert("文件打包失败，请查看控制台错误信息。");
+                    updateProgress("❌ 合成失败，请查看控制台。", 100);
+                    progressBar.style.backgroundColor = '#f44336'; // 红色失败
+                })
+                .finally(function() {
+                    // 7. 无论成功还是失败，最后恢复按钮
+                    if(btnElement) {
+                        btnElement.disabled = false;
+                        btnElement.style.opacity = "1";
+                        btnElement.style.cursor = "pointer";
+                    }
+                });
 
-
+        } catch (e) {
+            console.error("Unexpected error in main:", e);
+            updateProgress("❌ 发生意外错误，请查看控制台。");
+            if(btnElement) {
+                btnElement.disabled = false;
+                btnElement.style.opacity = "1";
+                btnElement.style.cursor = "pointer";
+            }
+        }
     }
 
     // 脚本启动
     window.onload = function () {
+        let panel = document.getElementsByClassName('panel')[0]
+        if (!panel) {
+             console.warn("Panel element not found, skipping button creation.");
+             return;
+        }
+
         let buttonMain = document.createElement('button')
         buttonMain.innerHTML = "下载"
         buttonMain.style.color = "black"
-        let div1 = document.getElementsByClassName('panel')[0]
-        div1.insertBefore(buttonMain, div1.firstChild)
-        buttonMain.onclick = main
-
-        let buttonTest = document.createElement('button')
-        buttonTest.innerHTML = "测试"
-        buttonTest.style.color = "black"
-        let div2 = document.getElementsByClassName('panel')[0]
-        div2.insertBefore(buttonTest, div2.firstChild)
-        buttonTest.onclick = test
-    }
-
-    // 测试函数
-    async function test() {
-        // 按照函数规则替换字符串 好文明
-        let numList = []
-        let a = 'How I want a drink, alcoholic of course, after the heavy lectures involving quantum mechanics'
-        let num = a.replace(/\w+/g, (aaa) => {
-            numList.push(aaa.length)
-            return aaa.length
-        })
-        console.log(num)
-        console.log(numList)
+        buttonMain.style.marginRight = "10px"
+        // 修改：将按钮自身传递给 main 函数
+        buttonMain.onclick = function() {
+            main(this);
+        }
+        panel.insertBefore(buttonMain, panel.firstChild)
     }
 
 })();
