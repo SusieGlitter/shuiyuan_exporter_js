@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shuiyuan Offline Viewer</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/marked/9.1.2/marked.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        /* 颜色变量：默认 (黑夜模式) */
+        :root {
+            --primary: #00a94f;
+            --secondary: #333;
+            --text: #e0e0e0;
+            --meta: #919191;
+            --bg: #18191a; 
+            --card-bg: #242526; 
+            --input-bg: #3a3b3c;
+            --border: #333;
+            --quote-bg: #2a2b2c;
+            --header-bg: #242526;
+        }
+
+        /* 浅色模式切换 */
+        [data-theme="light"] {
+            --secondary: #e9e9e9;
+            --text: #222;
+            --bg: #f3f3f3;
+            --card-bg: #ffffff;
+            --input-bg: #f8f8f8;
+            --border: #ddd;
+            --quote-bg: #f9f9f9;
+            --header-bg: #ffffff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* 顶部导航 */
+        header {
+            background: var(--header-bg);
+            padding: 10px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.3s;
+        }
+
+        h1 { margin: 0; font-size: 18px; color: var(--text); }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .btn-upload, .btn-theme-toggle {
+            position: relative;
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            border: none;
+        }
+        .btn-upload input {
+            position: absolute;
+            left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%;
+        }
+        .btn-theme-toggle {
+            background: var(--input-bg);
+            color: var(--text);
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            line-height: 40px;
+            text-align: center;
+        }
+
+        /* 侧边进度条 (Discourse Style) */
+        #progress-bar-container {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 8px; 
+            height: 100vh;
+            background-color: var(--secondary);
+            z-index: 90;
+            opacity: 0.8;
+            pointer-events: none;
+        }
+        #reading-progress {
+            width: 100%;
+            height: 0%;
+            background-color: var(--primary);
+            transition: height 0.1s linear;
+        }
+
+        /* 主容器 */
+        #main-container {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 0 10px;
+        }
+
+        /* 帖子标题 */
+        #topic-header {
+            margin-bottom: 20px;
+            padding: 0 10px;
+            color: var(--text);
+        }
+        #topic-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        /* 楼层卡片样式 */
+        .post-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 4px;
+            display: flex;
+            gap: 15px;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        .post-avatar {
+            flex-shrink: 0;
+            width: 45px;
+        }
+        
+        /* 自动生成的头像圆圈 */
+        .avatar-circle {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            text-transform: uppercase;
+        }
+
+        .post-main {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .post-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: var(--meta);
+            font-size: 14px;
+        }
+
+        .username {
+            font-weight: bold;
+            color: var(--text);
+            margin-right: 8px;
+            transition: color 0.3s;
+        }
+
+        .timestamp {
+            font-size: 12px;
+        }
+
+        .floor-number {
+            font-size: 12px;
+            color: var(--meta);
+        }
+
+        /* Markdown 内容样式 */
+        .cooked {
+            font-size: 15px;
+            overflow-wrap: break-word;
+        }
+        
+        .cooked img {
+            max-width: 100%; 
+            height: auto;
+            border-radius: 4px;
+            margin: 5px 0;
+            cursor: pointer;
+            border: 1px solid var(--border);
+        }
+
+        .cooked blockquote {
+            background: var(--quote-bg);
+            border-left: 5px solid var(--secondary);
+            margin: 10px 0;
+            padding: 10px 15px;
+            color: var(--meta);
+            border-radius: 4px;
+        }
+
+        .cooked pre {
+            background: var(--input-bg);
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+        .cooked code {
+             color: var(--text);
+        }
+
+        /* 附件链接样式 */
+        .attachment-link {
+            display: inline-block;
+            background: var(--input-bg);
+            padding: 5px 10px;
+            border-radius: 4px;
+            text-decoration: none;
+            color: var(--text);
+            font-size: 13px;
+            border: 1px solid var(--border);
+            margin-top: 5px;
+            transition: background-color 0.3s;
+        }
+
+        #loading, #error {
+            text-align: center;
+            padding: 40px;
+            display: none;
+            color: var(--meta);
+        }
+        #error { color: #f44; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🌊 Shuiyuan Offline Viewer</h1>
+    <div class="header-controls">
+        <button id="theme-toggle" class="btn-theme-toggle" title="切换主题">
+            <i class="fas fa-sun"></i>
+        </button>
+        <div class="btn-upload">
+            <i class="fas fa-folder-open"></i> 打开 ZIP 帖子包
+            <input type="file" id="fileInput" accept=".zip">
+        </div>
+    </div>
+</header>
+
+<div id="progress-bar-container">
+    <div id="reading-progress"></div>
+</div>
+
+<div id="main-container">
+    <div id="loading">正在解压并渲染，请稍候...</div>
+    <div id="error"></div>
+    
+    <div id="topic-header" style="display:none;">
+        <div id="topic-title"></div>
+    </div>
+    
+    <div id="posts-stream">
+        <div style="text-align:center; margin-top: 50px; color:var(--meta);">
+            请点击右上角上传由脚本导出的 ZIP 文件<br>
+            (点击 <i class="fas fa-sun"></i> 切换主题)
+        </div>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const postsStream = document.getElementById('posts-stream');
+    const topicHeader = document.getElementById('topic-header');
+    const topicTitle = document.getElementById('topic-title');
+    const loading = document.getElementById('loading');
+    const errorMsg = document.getElementById('error');
+    const themeToggle = document.getElementById('theme-toggle');
+    const readingProgress = document.getElementById('reading-progress');
+
+    let postRenderBlobMap = new Map(); 
+    let placeholderCounter = 0; 
+    
+    const mimeMap = {
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif',
+        'webp': 'image/webp', 'svg': 'image/svg+xml', 'pdf': 'application/pdf', 'txt': 'text/plain',
+        'zip': 'application/zip', 'rar': 'application/vnd.rar', 'mp4': 'video/mp4', 'mov': 'video/quicktime',
+        'doc': 'application/msword', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls': 'application/vnd.ms-excel', 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'ppt': 'application/vnd.ms-powerpoint', 'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    };
+
+    /* * SHA-1 散列函数 
+     * 用于生成 Discourse 风格的头像颜色。
+     */
+    function sha1(str) {
+        // 来自公开域的紧凑 SHA-1 实现
+        var rotate_left = function (n, s) { return (n << s) | (n >>> (32 - s)); };
+        var cvt_hex = function (val) {
+            var str = "", i;
+            var v;
+            for (i = 7; i >= 0; i--) {
+                v = (val >>> (i * 4)) & 0x0f;
+                str += v.toString(16);
+            }
+            return str;
+        };
+
+        var blockstart;
+        var i, j;
+        var W = new Array(80);
+        var H0 = 0x67452301;
+        var H1 = 0xEFCDAB89;
+        var H2 = 0x98BADCFE;
+        var H3 = 0x10325476;
+        var H4 = 0xC3D2E1F0;
+        var A, B, C, D, E;
+        var temp;
+
+        str = unescape(encodeURIComponent(str)); // UTF-8 encoding
+
+        var msg_len = str.length;
+        var word_array = [];
+        for (i = 0; i < msg_len; i++) {
+            j = str.charCodeAt(i);
+            word_array[i >>> 2] |= (j & 0xff) << (24 - (i % 4) * 8);
+        }
+
+        var msg_len_bits = msg_len * 8;
+        word_array[msg_len >>> 2] |= 0x80 << (24 - (msg_len % 4) * 8);
+        word_array[(((msg_len + 8) >>> 6) << 4) + 15] = msg_len_bits;
+
+        for (blockstart = 0; blockstart < word_array.length; blockstart += 16) {
+            A = H0; B = H1; C = H2; D = H3; E = H4;
+
+            for (i = 0; i < 80; i++) {
+                if (i < 16) {
+                    W[i] = word_array[blockstart + i];
+                } else {
+                    W[i] = rotate_left(W[i - 3] ^ W[i - 8] ^ W[i - 14] ^ W[i - 16], 1);
+                }
+
+                if (i < 20) {
+                    temp = (rotate_left(A, 5) + ((B & C) | (~B & D)) + E + W[i] + 0x5A827999) & 0x0ffffffff;
+                } else if (i < 40) {
+                    temp = (rotate_left(A, 5) + (B ^ C ^ D) + E + W[i] + 0x6ED9EBA1) & 0x0ffffffff;
+                } else if (i < 60) {
+                    temp = (rotate_left(A, 5) + ((B & C) | (B & D) | (C & D)) + E + W[i] + 0x8F1BBCDC) & 0x0ffffffff;
+                } else {
+                    temp = (rotate_left(A, 5) + (B ^ C ^ D) + E + W[i] + 0xCA62C1D6) & 0x0ffffffff;
+                }
+
+                E = D; D = C; C = rotate_left(B, 30); B = A; A = temp;
+            }
+
+            H0 = (H0 + A) & 0x0ffffffff;
+            H1 = (H1 + B) & 0x0ffffffff;
+            H2 = (H2 + C) & 0x0ffffffff;
+            H3 = (H3 + D) & 0x0ffffffff;
+            H4 = (H4 + E) & 0x0ffffffff;
+        }
+
+        temp = cvt_hex(H0) + cvt_hex(H1) + cvt_hex(H2) + cvt_hex(H3) + cvt_hex(H4);
+        return temp.toLowerCase();
+    }
+    
+    // 【新功能】Discourse 风格头像颜色生成 (基于 SHA-1)
+    function getDiscourseColor(str) {
+        // 1. 计算 SHA-1
+        const hash = sha1(str); 
+
+        // 2. 取前 6 位作为 RGB 颜色
+        const hexColor = '#' + hash.substring(0, 6).toUpperCase(); 
+        
+        // 3. 使用颜色值本身 + 少量透明度作为背景，以保持柔和
+        return {
+            bg: hexColor + '22', // 主颜色带 13% 透明度作为背景
+            fg: hexColor        // 主颜色作为前景
+        };
+    }
+
+    marked.use({ breaks: true, gfm: true });
+
+    const DOMPURIFY_CONFIG = {
+        ALLOWED_PROTOCOLS: ['http', 'https', 'mailto', 'tel'],
+        ADD_ATTR: ['width', 'height']
+    };
+    
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        themeToggle.querySelector('i').className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    }
+
+    function initTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'dark'; 
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        themeToggle.querySelector('i').className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        themeToggle.addEventListener('click', toggleTheme);
+    }
+    
+    function updateProgress() {
+        const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const scrolled = window.scrollY;
+        
+        if (scrollableHeight <= 0) {
+            readingProgress.style.height = '100%';
+            return;
+        }
+
+        const percentage = (scrolled / scrollableHeight) * 100;
+        readingProgress.style.height = `${Math.min(100, percentage)}%`;
+    }
+
+    window.addEventListener('scroll', updateProgress);
+    window.addEventListener('resize', updateProgress);
+    
+    initTheme(); // 初始化主题
+
+    fileInput.addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        postsStream.innerHTML = '';
+        topicHeader.style.display = 'none';
+        errorMsg.style.display = 'none';
+        loading.style.display = 'block';
+        postRenderBlobMap.clear(); 
+        placeholderCounter = 0;
+
+        try {
+            const zip = new JSZip();
+            await zip.loadAsync(file);
+
+            let mdFile = null;
+            let mdFileName = "";
+            zip.forEach((path, entry) => {
+                if (path.endsWith('.md') && !path.startsWith('__MACOSX')) {
+                    mdFile = entry;
+                    mdFileName = path;
+                }
+            });
+
+            if (!mdFile) throw new Error("未找到 .md 文件，请检查 ZIP 格式");
+
+            let title = mdFileName.split('/').pop().replace('.md', '');
+            title = title.replace(/^\d+\s+/, '').replace(/_/g, ' ').replace(/ or /g, '/');
+            topicTitle.innerText = title;
+            topicHeader.style.display = 'block';
+
+            const fileMap = new Map();
+            const filePromises = [];
+            
+            zip.forEach((path, entry) => {
+                if (!entry.dir && path.includes('/files/') && !path.startsWith('__MACOSX')) {
+                    filePromises.push(async () => {
+                        const blob = await entry.async('blob');
+                        let type = 'application/octet-stream';
+                        
+                        const filenameWithExtension = path.split('/').pop(); 
+                        const filename = decodeURIComponent(filenameWithExtension); 
+                        
+                        const extMatch = filename.match(/\.([a-z0-9]+)$/i);
+                        if (extMatch) {
+                            const ext = extMatch[1].toLowerCase();
+                            type = mimeMap[ext] || 'application/octet-stream';
+                        }
+                        
+                        const url = URL.createObjectURL(new Blob([blob], { type: type }));
+                        fileMap.set(filename, url);
+                    });
+                }
+            });
+            
+            await Promise.all(filePromises.map(fn => fn()));
+            console.log(`[Viewer] 已索引 ${fileMap.size} 个附件。`);
+
+            let rawText = await mdFile.async("string");
+
+            // 替换图片链接为占位符
+            rawText = rawText.replace(/\((\.\/)?files\/([^)]+)\)/g, (match, prefix, fullFileName) => {
+                let filename = fullFileName;
+                let queryIndex = fullFileName.indexOf('?');
+                if (queryIndex !== -1) {
+                    filename = fullFileName.substring(0, queryIndex); 
+                }
+                
+                try { filename = decodeURIComponent(filename); } catch(e){}
+
+                if (fileMap.has(filename)) {
+                    const actualBlobUrl = fileMap.get(filename);
+                    const placeholder = `_TEMP_SRC_${placeholderCounter++}_`; 
+                    
+                    postRenderBlobMap.set(placeholder, actualBlobUrl); 
+                    return `(${placeholder})`;
+                }
+                console.warn(`[Viewer] 替换失败: 文件 ${filename} 未在 ZIP 索引中找到. Markdown 链接: ${match}`);
+                return match; 
+            });
+
+            // 分割楼层
+            const separatorRegex = /^-{20,}\n/gm; 
+            const chunks = rawText.split(separatorRegex);
+
+            // 渲染每一层
+            let postCounter = 0;
+            chunks.forEach(chunk => {
+                if (!chunk.trim()) return;
+                postCounter++;
+
+                const lines = chunk.trim().split('\n');
+                const firstLine = lines[0].trim();
+                
+                const metaMatch = firstLine.match(/^(.*?)\s\|\s(.*?)\s\|\s#(\d+)$/);
+
+                let username = "Unknown";
+                let timeStr = "";
+                let floor = `#${postCounter}`; 
+                let bodyMarkdown = "";
+
+                if (metaMatch) {
+                    username = metaMatch[1];
+                    timeStr = metaMatch[2];
+                    floor = "#" + metaMatch[3];
+                    bodyMarkdown = lines.slice(1).join('\n');
+                } else {
+                    bodyMarkdown = chunk;
+                }
+
+                if (!bodyMarkdown.trim()) return;
+
+                createPostCard(username, timeStr, floor, bodyMarkdown);
+            });
+            
+            // 后期处理: 尺寸修复 & 占位符还原
+            fixDiscourseImageDimensions();
+            replaceImagePlaceholders(); 
+            updateProgress(); 
+
+            loading.style.display = 'none';
+
+        } catch (err) {
+            console.error(err);
+            errorMsg.innerText = "错误: " + err.message + " (请检查控制台获取详细信息)";
+            errorMsg.style.display = 'block';
+            loading.style.display = 'none';
+        }
+    });
+
+    function replaceImagePlaceholders() {
+        const elements = postsStream.querySelectorAll('.cooked img, .cooked a');
+
+        elements.forEach(el => {
+            const isImage = el.tagName === 'IMG';
+            const attr = isImage ? 'src' : 'href';
+            const currentValue = el.getAttribute(attr);
+            
+            if (currentValue && currentValue.startsWith('_TEMP_SRC_')) {
+                const actualBlobUrl = postRenderBlobMap.get(currentValue);
+                if (actualBlobUrl) {
+                    el.setAttribute(attr, actualBlobUrl);
+                }
+            }
+        });
+    }
+
+    function fixDiscourseImageDimensions() {
+        const images = postsStream.querySelectorAll('.cooked img');
+        
+        images.forEach(img => {
+            const altText = img.getAttribute('alt') || '';
+            const dimensionMatch = altText.match(/\|(\d+)x(\d+)$/);
+            
+            if (dimensionMatch) {
+                const width = dimensionMatch[1];
+                const height = dimensionMatch[2];
+                
+                img.setAttribute('width', width);
+                img.setAttribute('height', height);
+
+                const newAltText = altText.replace(/\|(\d+)x(\d+)$/, '');
+                img.setAttribute('alt', newAltText);
+            }
+        });
+    }
+
+    function createPostCard(username, time, floor, markdown) {
+        const card = document.createElement('div');
+        card.className = 'post-card';
+
+        // 使用 SHA-1 颜色
+        const avatarColors = getDiscourseColor(username);
+        const firstChar = username.substring(0, 1) || "?";
+
+        const renderer = new marked.Renderer();
+        renderer.link = function(href, title, text) {
+            if (href.startsWith('_TEMP_SRC_')) {
+                const link = document.createElement('a');
+                link.href = href; 
+                link.download = text; 
+                link.className = 'attachment-link';
+                link.innerHTML = `<i class="fas fa-paperclip"></i> ${text}`;
+                return link.outerHTML;
+            }
+            return `<a href="${href}" target="_blank">${text}</a>`;
+        };
+
+        const htmlContent = marked.parse(markdown, { renderer: renderer });
+        const cleanHtml = DOMPurify.sanitize(htmlContent, DOMPURIFY_CONFIG);
+
+
+        card.innerHTML = `
+            <div class="post-avatar">
+                <div class="avatar-circle" style="background-color: ${avatarColors.bg}; color: ${avatarColors.fg}">
+                    ${firstChar}
+                </div>
+            </div>
+            <div class="post-main">
+                <div class="post-meta">
+                    <div>
+                        <span class="username" style="color: ${avatarColors.fg};">${username}</span>
+                        <span class="timestamp">${time}</span>
+                    </div>
+                    <div class="floor-number">${floor}</div>
+                </div>
+                <div class="cooked">
+                    ${cleanHtml}
+                </div>
+            </div>
+        `;
+
+        postsStream.appendChild(card);
+    }
+</script>
+
+</body>
+</html>
