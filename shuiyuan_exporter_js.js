@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         Shuiyuan Exporter JS
 // @namespace    http://tampermonkey.net/
-// @version      2025-12-14
-// @description  try to take over the world!
+// @version      2025-12-27
+// @description  导出水源社区帖子和附件为ZIP
 // @author       SusieGlitter with Gemini
 // @match        https://shuiyuan.sjtu.edu.cn/
 // @match        https://shuiyuan.sjtu.edu.cn/*
 // @match        https://shuiyuan.sjtu.edu.cn/t/topic/*
 // @match        https://shuiyuan.sjtu.edu.cn/t/topic/*/*
-// @require      https://cdn.bootcdn.net/ajax/libs/jszip/3.7.1/jszip.min.js
-// @require      https://cdn.bootcdn.net/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js
+// @require      https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js
+// @require      https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_download
 // @icon         data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAdWgAAHVgB8YlK3wAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXpeoruPBoAAAC+SURBVDiNtVLBjgNBDL332gOogGgAOkGzQDoQOgI6QToCekGzQToqg24o+2g2QZ0g6wS9R0b2zR3g3+l8vIubm8n8e3zJd55Vj0U673N9Q11v76p0x7Q+X569rK+q329S1/l4407B19777X9H+YgU3gXhD5JvB3F3x+vj73809/2N+d5Q+5wR0j3P9+17sQzU3g/oU/J+c9+3+f1j/s/tL1n7/A9eF7gD2V8y2127x34L97mB+796J+3W8y+7+8B/cT0j2L+T7r2wzQ3XgHhD5I2V4E7g/4f0j0H+pP4P+f0j7N+97gT2F/y3H2sV+5h/w/935C7A/iC9C/Bfg7/Ffgf4f9f7Q/c+8F/cD4D+D/g3v1G9/gEAAAABJRU5ErkJggg==
