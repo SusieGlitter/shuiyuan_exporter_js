@@ -474,7 +474,7 @@
             const filePromises = [];
             
             zip.forEach((path, entry) => {
-                if (!entry.dir && path.includes('/files/') && !path.startsWith('__MACOSX')) {
+                if (!entry.dir && /(?:^|\/)files\//.test(path) && !path.startsWith('__MACOSX')) {
                     filePromises.push(async () => {
                         const blob = await entry.async('blob');
                         let type = 'application/octet-stream';
