@@ -198,7 +198,7 @@
                 console.log(realFilename)
 
                 let arrayBuffer = await response.arrayBuffer()
-                zipFiles[`${folder}/files/${realFilename}`] = new Uint8Array(arrayBuffer)
+                zipFiles[`files/${realFilename}`] = new Uint8Array(arrayBuffer)
 
                 return [url, filename, maxRetryTimes, realFilename]
             } else {
@@ -465,8 +465,8 @@
         text = await fileDealing(text)
 
         // 5. 将md文本加入文件存储
-        zipFiles[topicID + "/" + filename] = fflate.strToU8(text)
-
+        zipFiles[filename] = fflate.strToU8(text)
+            
         // 6. 生成并下载 zip 文件
         console.log("开始生成ZIP, 文件数:", Object.keys(zipFiles).length);
         updateProgress("✅ 文件合成中 (生成ZIP)...", 50);
