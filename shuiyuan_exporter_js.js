@@ -173,7 +173,7 @@
         }
     }
 
-    async function fetchAll(res, folder, maxRetryTimes) {
+    async function fetchAll(res, maxRetryTimes) {
         let newres = []
         let suc = []
         let totalItems = sum;
@@ -223,7 +223,7 @@
         return [newres, suc]
     }
 
-    async function fileDownload(fileList, folder, maxRetryTimes = 5) {
+    async function fileDownload(fileList, maxRetryTimes = 5) {
         let res = fileList.map(item => [item[0], item[1], 0, ''])
         let suc = []
         let ret = []
@@ -234,7 +234,7 @@
             attempt++;
             console.log(`\n--- Global File Download Attempt ${attempt} ---`);
 
-            let resandsuc = await fetchAll(res, folder, maxRetryTimes);
+            let resandsuc = await fetchAll(res, maxRetryTimes);
             res = resandsuc[0];
             suc = resandsuc[1].filter(item => item[3] !== '');
 
@@ -245,7 +245,7 @@
                 console.log(`${res.length} files still failed. Waiting for ${delay / 1000} seconds before next attempt.`);
                 updateProgress(`文件下载失败 ${res.length} 个。等待 ${delay / 1000} 秒后重试...`);
                 await sleep(delay);
-            } else if (res.length === 0) {
+            } else {
                 console.log('All files downloaded successfully or max retries reached for failed items.');
             }
         }
@@ -358,7 +358,7 @@
         }
     }
 
-    async function fileDealing(text, folder) {
+    async function fileDealing(text) {
         let fileList = []
         let fileMap = new Map();
 
@@ -386,7 +386,7 @@
         console.log(`Found ${fileList.length} unique files to download.`);
         updateProgress(`找到 ${fileList.length} 个附件，开始下载...`);
 
-        let downloadedList = await fileDownload(fileList, folder);
+        let downloadedList = await fileDownload(fileList);
         console.log('Download process finished. Starting text replacement.');
 
         updateProgress("附件下载完成，正在替换文本链接...");
@@ -455,39 +455,40 @@
         try {
             zipFiles = {} // 重置文件存储
 
-        updateProgress("正在获取帖子标题...");
-        let filename = await getFilename()
+            updateProgress("正在获取帖子标题...");
+            let filename = await getFilename()
 
-        // 3. 获取帖子原始文本
-        let text = await getRawText(topicID)
+            // 3. 获取帖子原始文本
+            let text = await getRawText(topicID)
 
-        // 4. 处理文件下载和链接替换
-        text = await fileDealing(text)
+            // 4. 处理文件下载和链接替换
+            text = await fileDealing(text)
 
-        // 5. 将md文本加入文件存储
-        zipFiles[filename] = fflate.strToU8(text)
-            
-        // 6. 生成并下载 zip 文件
-        console.log("开始生成ZIP, 文件数:", Object.keys(zipFiles).length);
-        updateProgress("✅ 文件合成中 (生成ZIP)...", 50);
+            // 5. 将md文本加入文件存储
+            zipFiles[filename] = fflate.strToU8(text)
 
-    try {
-        const zipped = fflate.zipSync(zipFiles, { level: 0 })
-        const blob = new Blob([zipped], { type: 'application/zip' })
-        saveAs(blob, topicID + ".zip")
-        console.log("ZIP生成完毕，开始保存");
-        updateProgress(`🎉 下载完成! (文件: ${topicID}.zip)`, 100);
-    } catch(e) {
-        console.error("ZIP生成失败:", e);
-        alert("文件打包失败，请查看控制台错误信息。");
-        updateProgress("❌ 合成失败，请查看控制台。", 100);
-    } finally {
-        if(btnElement) {
-            btnElement.disabled = false;
-            btnElement.style.opacity = "1";
-            btnElement.style.cursor = "pointer";
-        }
-    }
+            // 6. 生成并下载 zip 文件
+            console.log("开始生成ZIP, 文件数:", Object.keys(zipFiles).length);
+            updateProgress("✅ 文件合成中 (生成ZIP)...", 50);
+
+            try {
+                const zipped = fflate.zipSync(zipFiles, { level: 0 })
+                const blob = new Blob([zipped], { type: 'application/zip' })
+                saveAs(blob, topicID + ".zip")
+                console.log("ZIP生成完毕，开始保存");
+                updateProgress(`🎉 下载完成! (文件: ${topicID}.zip)`, 100);
+            } catch(e) {
+                console.error("ZIP生成失败:", e);
+                alert("文件打包失败，请查看控制台错误信息。");
+                updateProgress("❌ 合成失败，请查看控制台。", 100);
+            } finally {
+                zipFiles = {}
+                if(btnElement) {
+                    btnElement.disabled = false;
+                    btnElement.style.opacity = "1";
+                    btnElement.style.cursor = "pointer";
+                }
+            }
         } catch (e) {
             console.error("Unexpected error in main:", e);
             updateProgress("❌ 发生意外错误，请查看控制台。");
