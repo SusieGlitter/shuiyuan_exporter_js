@@ -197,8 +197,8 @@
                 let realFilename = match ? match[1] : filename
                 console.log(realFilename)
 
-              let arrayBuffer = await response.arrayBuffer()
-zipFiles[`files/${realFilename}`] = new Uint8Array(arrayBuffer)
+                let arrayBuffer = await response.arrayBuffer()
+                zipFiles[`${folder}/files/${realFilename}`] = new Uint8Array(arrayBuffer)
 
                 return [url, filename, maxRetryTimes, realFilename]
             } else {
@@ -462,7 +462,7 @@ zipFiles[`files/${realFilename}`] = new Uint8Array(arrayBuffer)
         let text = await getRawText(topicID)
 
         // 4. 处理文件下载和链接替换
-        text = await fileDealing(text, null)
+        text = await fileDealing(text)
 
         // 5. 将md文本加入文件存储
         zipFiles[topicID + "/" + filename] = fflate.strToU8(text)
