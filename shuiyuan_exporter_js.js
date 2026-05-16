@@ -273,24 +273,26 @@
         let topicID = await getTopicID()
         if (!url || !topicID) return topicID + " topic.md"
 
-        let oneboxUrl = urlWithParams('https://shuiyuan.sjtu.edu.cn/onebox', { url: url })
-        let res = await make_request_get(oneboxUrl)
+        let jsonUrl = url + ".json"
+        let res = await make_request_get(jsonUrl, true) 
         if (!res || !res.ok) {
-            console.warn("Failed to fetch onebox. Using default filename.");
+            console.warn("Failed to fetch topic JSON. Using default filename.");
             return topicID + " topic.md"
         }
 
-        let parser = new DOMParser()
-        let text = await res.text()
-        let doc = parser.parseFromString(text, 'text/html')
-        let a = doc.querySelector('a')
-
-        let filename = a ? a.textContent : "未知标题"
-        filename = filename + ".md"
-        filename = filename.replace(/\//g, " or ")
-        filename = filename.replace(/<[^>]+>/g, "_")
-        filename = topicID + " " + filename
-        return filename
+        try {
+            let data = await res.json()
+            let filename = data.fancy_title || data.title || "未知标题"
+            
+            filename = filename + ".md"
+            filename = filename.replace(/\//g, " or ") 
+            filename = filename.replace(/<[^>]+>/g, "_") 
+            filename = topicID + " " + filename
+            return filename
+        } catch (err) {
+            console.error("Parse JSON error in getFilename:", err);
+            return topicID + " topic.md"
+        }
     }
 
     // 文本获取与处理
