@@ -283,7 +283,7 @@
     <div id="posts-stream">
         <div style="text-align:center; margin-top: 50px; color:var(--meta);">
             请点击右上角上传由脚本导出的 ZIP 文件<br>
-            (点击 <i class="fas fa-sun"></i> 切换主题)
+            (点击 <i id="hint-theme-icon" class="fas fa-sun"></i> 切换主题)
         </div>
     </div>
 </div>
@@ -411,13 +411,29 @@
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
-        themeToggle.querySelector('i').className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        
+        const iconClass = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        
+        themeToggle.querySelector('i').className = iconClass;
+        const hintIcon = document.getElementById('hint-theme-icon');
+        if (hintIcon) {
+            hintIcon.className = iconClass;
+        }
     }
-
+    
     function initTheme() {
         const savedTheme = localStorage.getItem('theme') || 'dark'; 
         document.documentElement.setAttribute('data-theme', savedTheme);
-        themeToggle.querySelector('i').className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        
+        const iconClass = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        
+        themeToggle.querySelector('i').className = iconClass;
+        
+        const hintIcon = document.getElementById('hint-theme-icon');
+        if (hintIcon) {
+            hintIcon.className = iconClass;
+        }
+        
         themeToggle.addEventListener('click', toggleTheme);
     }
     
