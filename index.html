@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加载中...</title>
+    <style>
+        /* 简单的加载提示样式 */
+        .loading-status {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader" class="loading-status">正在加载查看器...</div>
+
+    <script>
+        // 动态获取同目录下的 viewer.html 内容
+        fetch('viewer.html')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应错误，无法加载 viewer.html');
+                }
+                return response.text();
+            })
+            .then(htmlContent => {
+                // 清空当前载入提示
+                document.getElementById('loader').remove();
+                
+                // 将 viewer.html 的内容写入当前文档
+                document.open();
+                document.write(htmlContent);
+                document.close();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loader').textContent = '加载失败，请刷新重试。';
+            });
+    </script>
+</body>
+</html>
