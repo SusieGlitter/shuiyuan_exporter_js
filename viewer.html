@@ -22,6 +22,7 @@
             --border: #333;
             --quote-bg: #2a2b2c;
             --header-bg: #242526;
+            --reply-accent: #4da6ff;
         }
 
         /* 浅色模式切换 */
@@ -34,6 +35,7 @@
             --border: #ddd;
             --quote-bg: #f9f9f9;
             --header-bg: #ffffff;
+            --reply-accent: #0066cc;
         }
 
         body {
@@ -186,12 +188,68 @@
         }
 
         .timestamp {
-            font-size: 12px;
+            font-size: 13px;
         }
 
         .floor-number {
-            font-size: 12px;
+            font-size: 13px;
             color: var(--meta);
+        }
+
+        /* 回复标签样式 */
+        .reply-to-badge {
+            display: inline-block;
+            background: var(--quote-bg);
+            color: var(--reply-accent);
+            padding: 3px 10px;
+            margin-left: 10px;
+            border-left: 4px solid var(--reply-accent);
+            border-radius: 0 4px 4px 0;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .reply-to-badge:hover {
+            background: var(--primary);
+            color: white;
+            border-left-color: var(--primary);
+        }
+        .reply-to-badge i { margin-right: 5px; }
+
+        /* Discourse 引用块样式 */
+        .discourse-quote {
+            background: var(--quote-bg);
+            border-left: 5px solid var(--reply-accent);
+            margin: 10px 0;
+            padding: 10px 15px;
+            border-radius: 4px;
+        }
+        .quote-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            color: var(--meta);
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+        }
+        .quote-header i {
+            font-size: 14px;
+            color: var(--reply-accent);
+        }
+        .quote-author {
+            font-weight: bold;
+            color: var(--text);
+        }
+        .quote-meta {
+            font-size: 12px;
+            opacity: 0.85;
+        }
+        .quote-body {
+            font-size: 14px;
+            color: var(--text);
         }
 
         /* Markdown 内容样式 */
@@ -250,6 +308,15 @@
             color: var(--meta);
         }
         #error { color: #f44; }
+
+        @keyframes highlight-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 169, 79, 0.5); border-color: var(--primary); }
+            50% { box-shadow: 0 0 0 8px rgba(0, 169, 79, 0); border-color: var(--primary); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 169, 79, 0); border-color: var(--border); }
+        }
+        .post-card.highlight {
+            animation: highlight-pulse 1.5s ease-out;
+        }
 
     </style>
 </head>
@@ -567,7 +634,16 @@
 
                 if (!bodyMarkdown.trim()) return;
 
-                createPostCard(username, timeStr, floor, bodyMarkdown);
+                // 提取并移除回复引用块
+                let replyTo = null;
+                const replyRegex = /^>\s*回复第\s*(\d+)\s*楼\s*\n?/gm;
+                bodyMarkdown = bodyMarkdown.replace(replyRegex, (match, num) => {
+                    replyTo = parseInt(num, 10);
+                    return '';
+                });
+                // 清理多余空行
+                bodyMarkdown = bodyMarkdown.replace(/^\n+/, '');
+                createPostCard(username, timeStr, floor, bodyMarkdown, replyTo);
             });
             
             // 后期处理: 尺寸修复 & 占位符还原
@@ -622,13 +698,96 @@
         });
     }
 
-    function createPostCard(username, time, floor, markdown) {
+    // 滚动到指定楼层
+    function scrollToFloor(floorNum) {
+        const target = document.getElementById(`post-${floorNum}`);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('highlight');
+            target.addEventListener('animationend', function handler() {
+                target.classList.remove('highlight');
+                target.removeEventListener('animationend', handler);
+            });
+        }
+    }
+
+    // 预处理 [quote] 标签：替换为占位符，并异步收集渲染后的 HTML
+    function preprocessQuotes(markdown) {
+        const quotes = [];
+        let index = 0;
+        // 匹配所有 [quote="..."] ... [/quote]
+        const quoteRegex = /\[quote="([^"]*)"\]\s*([\s\S]*?)\[\/quote\]/g;
+
+        const processed = markdown.replace(quoteRegex, (match, attrsStr, body) => {
+            // 解析属性字符串：第一个逗号前是显示名，之后是 key:value 对
+            const parts = attrsStr.split(',');
+            const displayName = parts[0].trim();
+            const attrs = {};
+            for (let i = 1; i < parts.length; i++) {
+                const kv = parts[i].trim();
+                const colonIdx = kv.indexOf(':');
+                if (colonIdx > 0) {
+                    const key = kv.substring(0, colonIdx).trim();
+                    const value = kv.substring(colonIdx + 1).trim();
+                    attrs[key] = value;
+                }
+            }
+            const post = attrs.post || '';
+            const topic = attrs.topic || '';
+            const author = attrs.username || displayName;
+
+            // 将 quote 内部内容也用 Markdown 渲染（支持加粗、图片等）
+            const bodyHtml = marked.parse(body.trim(), { breaks: true, gfm: true });
+            const placeholder = `%%QUOTE_${index}%%`;
+
+            // 构建带来源信息的引用块
+            const quoteHtml = `
+                <blockquote class="discourse-quote">
+                    <div class="quote-header">
+                        <i class="fas fa-quote-left"></i>
+                        <span class="quote-author">${escapeHtml(author)}</span>
+                        <span class="quote-meta">
+                            ${post ? `在 <a href="https://shuiyuan.sjtu.edu.cn/t/topic/${topic}/${post}" target="_blank" rel="noopener noreferrer">#${post}</a>` : ''}
+                            ${topic ? ` (话题 ${topic})` : ''}
+                        </span>
+                    </div>
+                    <div class="quote-body">${bodyHtml}</div>
+                </blockquote>
+            `;
+
+            quotes.push(quoteHtml);
+            index++;
+            return placeholder;
+        });
+
+        return { processed, quotes };
+    }
+
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function createPostCard(username, time, floor, markdown, replyTo) {
         const card = document.createElement('div');
         card.className = 'post-card';
+        // 设置唯一 id，方便回复跳转
+        const floorNumMatch = floor.match(/#(\d+)/);
+        const floorId = floorNumMatch ? floorNumMatch[1] : '';
+        if (floorId) card.id = `post-${floorId}`;
 
         // 使用 SHA-1 颜色
         const avatarColors = getDiscourseColor(username);
         const firstChar = username.substring(0, 1) || "?";
+
+        // 预处理 [quote] 标签
+        const { processed: processedMarkdown, quotes } = preprocessQuotes(markdown);
 
         const renderer = new marked.Renderer();
         renderer.link = function(href, title, text) {
@@ -643,9 +802,20 @@
             return `<a href="${href}" target="_blank">${text}</a>`;
         };
 
-        const htmlContent = marked.parse(markdown, { renderer: renderer });
+        let htmlContent = marked.parse(processedMarkdown, { renderer: renderer });
+        // 将占位符替换回真实的 quote HTML
+        quotes.forEach((quoteHtml, i) => {
+            htmlContent = htmlContent.replace(`%%QUOTE_${i}%%`, quoteHtml);
+        });
+
         const cleanHtml = DOMPurify.sanitize(htmlContent, DOMPURIFY_CONFIG);
 
+        // 构建回复标签 HTML（如果有）
+        const replyTagHtml = replyTo
+            ? `<span class="reply-to-badge" onclick="scrollToFloor(${replyTo})" title="点击跳转到 #${replyTo}">
+                   <i class="fas fa-reply"></i> 回复 #${replyTo}
+               </span>`
+            : '';
 
         card.innerHTML = `
             <div class="post-avatar">
@@ -658,6 +828,7 @@
                     <div>
                         <span class="username" style="color: ${avatarColors.fg};">${username}</span>
                         <span class="timestamp">${time}</span>
+                        ${replyTagHtml}
                     </div>
                     <div class="floor-number">${floor}</div>
                 </div>
