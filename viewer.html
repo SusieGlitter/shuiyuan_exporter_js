@@ -23,6 +23,10 @@
             --quote-bg: #2a2b2c;
             --header-bg: #242526;
             --reply-accent: #4da6ff;
+            --reply-indent: 58px;
+            --tree-x: 38px;
+            --tree-gap: calc(var(--reply-indent) - var(--tree-x));
+            --tree-dot-center-y: 28px;
         }
 
         /* 浅色模式切换 */
@@ -250,6 +254,242 @@
         .quote-body {
             font-size: 14px;
             color: var(--text);
+        }
+
+        .post-footer {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--meta);
+            cursor: pointer;
+            font-size: 13px;
+            user-select: none;
+        }
+
+        .btn:hover {
+            background: var(--input-bg);
+            color: var(--text);
+        }
+
+        .btn-flat {
+            box-shadow: none;
+        }
+
+        .btn-icon-text {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .d-button-label {
+            display: inline-block;
+            line-height: 1;
+        }
+
+        .btn.post-action-menu__show-replies.show-replies {
+            border-color: var(--border);
+        }
+
+        .btn.post-action-menu__show-replies.show-replies[aria-expanded="true"] {
+            border-color: var(--reply-accent);
+            color: var(--text);
+        }
+
+        .reply-to-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 10px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--quote-bg);
+            color: var(--reply-accent);
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 13px;
+            user-select: none;
+        }
+
+        .reply-to-tab:hover {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .reply-to-tab .mini-avatar {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .reply-box {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background: var(--quote-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            position: relative;
+        }
+
+        .reply-box-left {
+            margin-left: var(--reply-indent);
+            border-left: 4px solid var(--reply-accent);
+        }
+
+        .reply-box-right {
+            margin-right: 58px;
+            border-right: 4px solid var(--reply-accent);
+        }
+
+        .reply-box-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--border);
+            color: var(--meta);
+            font-size: 13px;
+        }
+
+        .reply-box-header-left {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .reply-to-outside {
+            margin-bottom: 6px;
+        }
+
+        .post-group {
+            position: relative;
+        }
+
+        .post-group.show-parent {
+            padding-top: 14px;
+        }
+
+        .post-group.show-children {
+            padding-bottom: 14px;
+        }
+
+        .post-group.show-parent .reply-to-outside {
+            margin-bottom: 10px;
+        }
+
+        .post-group.show-children .replies-list {
+            margin-top: 10px;
+        }
+
+        .reply-box-tree {
+            display: none;
+            position: absolute;
+            left: calc(-1 * var(--tree-gap));
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--reply-accent);
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .reply-box.tree-last .reply-box-tree {
+            bottom: calc(100% - var(--tree-dot-center-y));
+        }
+
+        .reply-box.tree-from-dot .reply-box-tree {
+            top: var(--tree-dot-center-y);
+        }
+
+        .reply-to-outside {
+            position: relative;
+        }
+
+        .post-group.show-parent .reply-to-outside::after {
+            content: "";
+            position: absolute;
+            left: var(--tree-x);
+            top: 100%;
+            height: 6px;
+            width: 2px;
+            background: var(--reply-accent);
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .post-group.show-parent .reply-to-outside .reply-box::before,
+        .post-group.show-children .replies-list .reply-box::before {
+            content: "";
+            position: absolute;
+            left: calc(-1 * var(--tree-gap));
+            top: var(--tree-dot-center-y);
+            width: var(--tree-gap);
+            height: 2px;
+            background: var(--reply-accent);
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .post-group.show-parent .reply-to-outside .reply-box::after,
+        .post-group.show-children .replies-list .reply-box::after {
+            content: "";
+            position: absolute;
+            left: calc(-1 * var(--tree-gap) - 6px);
+            top: calc(var(--tree-dot-center-y) - 6px);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 2px solid var(--reply-accent);
+            background: var(--bg);
+            opacity: 0.65;
+            pointer-events: none;
+        }
+
+        .post-group.show-parent .reply-to-outside .reply-box-tree,
+        .post-group.show-children .replies-list .reply-box-tree {
+            display: block;
+        }
+
+        .btn-jump {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .btn-jump:hover {
+            border-color: var(--reply-accent);
+        }
+
+        .replies-list {
+            display: none;
         }
 
         /* Markdown 内容样式 */
@@ -607,7 +847,7 @@
             const separatorRegex = /^-{20,}\n/gm; 
             const chunks = rawText.split(separatorRegex);
 
-            // 渲染每一层
+            const posts = [];
             let postCounter = 0;
             chunks.forEach(chunk => {
                 if (!chunk.trim()) return;
@@ -643,7 +883,39 @@
                 });
                 // 清理多余空行
                 bodyMarkdown = bodyMarkdown.replace(/^\n+/, '');
-                createPostCard(username, timeStr, floor, bodyMarkdown, replyTo);
+
+                const floorNumMatch = floor.match(/#(\d+)/);
+                const floorNumber = floorNumMatch ? parseInt(floorNumMatch[1], 10) : postCounter;
+                if (!Number.isFinite(floorNumber) || floorNumber <= 0) return;
+
+                posts.push({
+                    username,
+                    time: timeStr,
+                    floor,
+                    floorNumber,
+                    markdown: bodyMarkdown,
+                    replyTo
+                });
+            });
+
+            const postByFloor = new Map();
+            posts.forEach(p => postByFloor.set(p.floorNumber, p));
+
+            const repliesToMap = new Map();
+            posts.forEach(p => {
+                if (!Number.isFinite(p.replyTo) || p.replyTo <= 0) return;
+                if (!postByFloor.has(p.replyTo)) return;
+                const arr = repliesToMap.get(p.replyTo) || [];
+                arr.push(p.floorNumber);
+                repliesToMap.set(p.replyTo, arr);
+            });
+
+            posts.forEach(p => {
+                p.cleanHtml = renderPostHtml(p.markdown);
+            });
+
+            posts.forEach(p => {
+                createPostCard(p, postByFloor, repliesToMap);
             });
             
             // 后期处理: 尺寸修复 & 占位符还原
@@ -661,8 +933,8 @@
         }
     });
 
-    function replaceImagePlaceholders() {
-        const elements = postsStream.querySelectorAll('.cooked img, .cooked a');
+    function replaceImagePlaceholders(root = postsStream) {
+        const elements = root.querySelectorAll('.cooked img, .cooked a');
 
         elements.forEach(el => {
             const isImage = el.tagName === 'IMG';
@@ -678,8 +950,8 @@
         });
     }
 
-    function fixDiscourseImageDimensions() {
-        const images = postsStream.querySelectorAll('.cooked img');
+    function fixDiscourseImageDimensions(root = postsStream) {
+        const images = root.querySelectorAll('.cooked img');
         
         images.forEach(img => {
             const altText = img.getAttribute('alt') || '';
@@ -774,19 +1046,7 @@
         return text.replace(/[&<>"']/g, m => map[m]);
     }
 
-    function createPostCard(username, time, floor, markdown, replyTo) {
-        const card = document.createElement('div');
-        card.className = 'post-card';
-        // 设置唯一 id，方便回复跳转
-        const floorNumMatch = floor.match(/#(\d+)/);
-        const floorId = floorNumMatch ? floorNumMatch[1] : '';
-        if (floorId) card.id = `post-${floorId}`;
-
-        // 使用 SHA-1 颜色
-        const avatarColors = getDiscourseColor(username);
-        const firstChar = username.substring(0, 1) || "?";
-
-        // 预处理 [quote] 标签
+    function renderPostHtml(markdown) {
         const { processed: processedMarkdown, quotes } = preprocessQuotes(markdown);
 
         const renderer = new marked.Renderer();
@@ -799,23 +1059,84 @@
                 link.innerHTML = `<i class="fas fa-paperclip"></i> ${text}`;
                 return link.outerHTML;
             }
-            return `<a href="${href}" target="_blank">${text}</a>`;
+            if (href.startsWith('#')) {
+                return `<a href="${href}">${text}</a>`;
+            }
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
         };
 
         let htmlContent = marked.parse(processedMarkdown, { renderer: renderer });
-        // 将占位符替换回真实的 quote HTML
         quotes.forEach((quoteHtml, i) => {
             htmlContent = htmlContent.replace(`%%QUOTE_${i}%%`, quoteHtml);
         });
 
-        const cleanHtml = DOMPurify.sanitize(htmlContent, DOMPURIFY_CONFIG);
+        return DOMPurify.sanitize(htmlContent, DOMPURIFY_CONFIG);
+    }
 
-        // 构建回复标签 HTML（如果有）
-        const replyTagHtml = replyTo
-            ? `<span class="reply-to-badge" onclick="scrollToFloor(${replyTo})" title="点击跳转到 #${replyTo}">
-                   <i class="fas fa-reply"></i> 回复 #${replyTo}
-               </span>`
-            : '';
+    function createReplyBox(post, side, headerLabel, isLast = false, fromDot = false) {
+        const box = document.createElement('div');
+        box.className = `reply-box ${side === 'right' ? 'reply-box-right' : 'reply-box-left'}`;
+        if (isLast) box.classList.add('tree-last');
+        if (fromDot) box.classList.add('tree-from-dot');
+
+        const tree = document.createElement('div');
+        tree.className = 'reply-box-tree';
+
+        const header = document.createElement('div');
+        header.className = 'reply-box-header';
+
+        const left = document.createElement('div');
+        left.className = 'reply-box-header-left';
+        const timeText = post.time ? ` · ${post.time}` : '';
+        left.textContent = `${headerLabel} · ${post.username} · #${post.floorNumber}${timeText}`;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn-jump';
+        btn.textContent = '跳转到该帖';
+        btn.addEventListener('click', () => scrollToFloor(post.floorNumber));
+
+        header.appendChild(left);
+        header.appendChild(btn);
+
+        const cooked = document.createElement('div');
+        cooked.className = 'cooked';
+        cooked.innerHTML = post.cleanHtml || '';
+
+        box.appendChild(tree);
+        box.appendChild(header);
+        box.appendChild(cooked);
+        return box;
+    }
+
+    function createPostCard(post, postByFloor, repliesToMap) {
+        const group = document.createElement('div');
+        group.className = 'post-group';
+
+        const card = document.createElement('div');
+        card.className = 'post-card';
+        // 设置唯一 id，方便回复跳转
+        if (post.floorNumber) card.id = `post-${post.floorNumber}`;
+
+        // 使用 SHA-1 颜色
+        const avatarColors = getDiscourseColor(post.username);
+        const firstChar = post.username.substring(0, 1) || "?";
+
+        const replyToPost = (Number.isFinite(post.replyTo) && post.replyTo > 0) ? postByFloor.get(post.replyTo) : null;
+        const repliesToThis = repliesToMap.get(post.floorNumber) || [];
+
+        const replyToTabHtml = (() => {
+            if (!replyToPost) return '';
+            const parentColors = getDiscourseColor(replyToPost.username);
+            const parentChar = replyToPost.username.substring(0, 1) || "?";
+            return `
+                <a href="" class="reply-to-tab" role="button" title="加载父帖子" data-parent-floor="${replyToPost.floorNumber}">
+                    <i class="fas fa-share"></i>
+                    <span class="mini-avatar" style="background-color:${parentColors.bg};color:${parentColors.fg}">${parentChar}</span>
+                    <span>${replyToPost.username}</span>
+                </a>
+            `;
+        })();
 
         card.innerHTML = `
             <div class="post-avatar">
@@ -826,19 +1147,103 @@
             <div class="post-main">
                 <div class="post-meta">
                     <div>
-                        <span class="username" style="color: ${avatarColors.fg};">${username}</span>
-                        <span class="timestamp">${time}</span>
-                        ${replyTagHtml}
+                        <span class="username" style="color: ${avatarColors.fg};">${post.username}</span>
+                        <span class="timestamp">${post.time}</span>
+                        ${replyToTabHtml}
                     </div>
-                    <div class="floor-number">${floor}</div>
+                    <div class="floor-number">${post.floor}</div>
                 </div>
                 <div class="cooked">
-                    ${cleanHtml}
+                    ${post.cleanHtml || ''}
+                </div>
+                <div class="post-footer">
+                    <div class="post-footer-left"></div>
+                    <div class="post-footer-right"></div>
                 </div>
             </div>
         `;
 
-        postsStream.appendChild(card);
+        const replyToOutside = document.createElement('div');
+        replyToOutside.className = 'reply-to-outside';
+        replyToOutside.style.display = 'none';
+
+        const repliesOutside = document.createElement('div');
+        repliesOutside.className = 'replies-list';
+        repliesOutside.style.display = 'none';
+
+        const replyToTab = card.querySelector('.reply-to-tab');
+        if (replyToTab && replyToPost) {
+            replyToTab.addEventListener('click', (e) => {
+                e.preventDefault();
+
+                const isOpen = replyToOutside.dataset.open === '1';
+                if (isOpen) {
+                    replyToOutside.style.display = 'none';
+                    replyToOutside.dataset.open = '0';
+                    group.classList.remove('show-parent');
+                    return;
+                }
+
+                if (!replyToOutside.dataset.rendered) {
+                    const box = createReplyBox(replyToPost, 'left', `回复 #${replyToPost.floorNumber}`, true, true);
+                    replyToOutside.appendChild(box);
+                    replyToOutside.dataset.rendered = '1';
+                    fixDiscourseImageDimensions(replyToOutside);
+                    replaceImagePlaceholders(replyToOutside);
+                }
+
+                replyToOutside.style.display = 'block';
+                replyToOutside.dataset.open = '1';
+                group.classList.add('show-parent');
+            });
+        }
+
+        const footerLeft = card.querySelector('.post-footer-left');
+        if (repliesToThis.length > 0) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn post-action-menu__show-replies show-replies btn-icon-text btn-flat';
+            btn.setAttribute('aria-expanded', 'false');
+            btn.setAttribute('aria-label', `此帖子有 ${repliesToThis.length} 条回复`);
+            btn.innerHTML = `<span class="d-button-label">${repliesToThis.length} 个回复</span><i class="fas fa-chevron-down"></i>`;
+
+            btn.addEventListener('click', () => {
+                const isOpen = repliesOutside.dataset.open === '1';
+                if (isOpen) {
+                    repliesOutside.style.display = 'none';
+                    repliesOutside.dataset.open = '0';
+                    btn.setAttribute('aria-expanded', 'false');
+                    group.classList.remove('show-children');
+                    return;
+                }
+
+                if (!repliesOutside.dataset.rendered) {
+                    for (let i = 0; i < repliesToThis.length; i++) {
+                        const floorNumber = repliesToThis[i];
+                        const childPost = postByFloor.get(floorNumber);
+                        if (!childPost) continue;
+                        const isLast = i === repliesToThis.length - 1;
+                        const box = createReplyBox(childPost, 'left', `回复帖 #${childPost.floorNumber}`, isLast);
+                        repliesOutside.appendChild(box);
+                    }
+                    repliesOutside.dataset.rendered = '1';
+                    fixDiscourseImageDimensions(repliesOutside);
+                    replaceImagePlaceholders(repliesOutside);
+                }
+
+                repliesOutside.style.display = 'block';
+                repliesOutside.dataset.open = '1';
+                btn.setAttribute('aria-expanded', 'true');
+                group.classList.add('show-children');
+            });
+
+            footerLeft.appendChild(btn);
+        }
+
+        group.appendChild(replyToOutside);
+        group.appendChild(card);
+        group.appendChild(repliesOutside);
+        postsStream.appendChild(group);
     }
 </script>
 
