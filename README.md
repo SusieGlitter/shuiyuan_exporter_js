@@ -1,6 +1,6 @@
 **这是什么**
 
-保存水源社区的帖子的油猴脚本，以及配套的离线查看器
+保存水源社区的帖子的油猴脚本，以及配套的[离线查看器](https://susieglitter.github.io/shuiyuan_exporter_js/)
 
 ---
 
